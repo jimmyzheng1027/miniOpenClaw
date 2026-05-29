@@ -170,6 +170,27 @@ def parse_or_fallback_guardian_label(text: str, fail_mode: str) -> GuardianLabel
         return resolve_guardian_fallback(error=error, fail_mode=fail_mode)
 
 
+_guardian_client: Any | None = None
+
+
+def _get_guardian_client() -> Any:
+    global _guardian_client
+    if _guardian_client is None:
+        from config import get_settings
+        from langchain_openai import ChatOpenAI
+
+        settings = get_settings()
+        timeout_seconds = max(0.1, settings.guardian_timeout_ms / 1000.0)
+        _guardian_client = ChatOpenAI(
+            model=settings.guardian_model,
+            api_key=settings.guardian_api_key,
+            base_url=settings.guardian_base_url,
+            temperature=0,
+            timeout=timeout_seconds,
+        )
+    return _guardian_client
+
+
 def _request_guardian_label(user_text: str) -> str:
     from config import get_settings
 
@@ -177,16 +198,7 @@ def _request_guardian_label(user_text: str) -> str:
     # if not settings.guardian_api_key:
     #     raise RuntimeError("GUARDIAN_API_KEY is missing")
 
-    from langchain_openai import ChatOpenAI
-
-    timeout_seconds = max(0.1, settings.guardian_timeout_ms / 1000.0)
-    client = ChatOpenAI(
-        model=settings.guardian_model,
-        api_key=settings.guardian_api_key,
-        base_url=settings.guardian_base_url,
-        temperature=0,
-        timeout=timeout_seconds,
-    )
+    client = _get_guardian_client()
     payload = build_guardian_request_payload(
         user_text,
         model=settings.guardian_model,

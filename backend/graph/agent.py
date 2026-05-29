@@ -36,6 +36,8 @@ class AgentManager:
         self.base_dir: Path | None = None
         self.session_manager: SessionManager | None = None
         self.tools = []
+        self._agent_graph = None
+        self._agent_graph_tools_id: int | None = None
 
     def initialize(self, base_dir: Path) -> None:
         self.base_dir = base_dir
@@ -51,10 +53,15 @@ class AgentManager:
     def _build_agent(self):
         if self.base_dir is None:
             raise RuntimeError("AgentManager is not initialized")
+        tools_id = id(self.tools)
+        if self._agent_graph is not None and self._agent_graph_tools_id == tools_id:
+            return self._agent_graph
         config = build_agent_config(
             self.base_dir, self.tools, use_checkpointer=True
         )
-        return create_agent_from_config(config)
+        self._agent_graph = create_agent_from_config(config)
+        self._agent_graph_tools_id = tools_id
+        return self._agent_graph
 
     def _build_messages(self, history: list[dict[str, Any]]) -> list[dict[str, str]]:
         messages: list[dict[str, str]] = []
